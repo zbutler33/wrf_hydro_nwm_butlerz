@@ -278,9 +278,9 @@ module module_NoahMP_hrldas_driver
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SFCRUNOFF_TR ! accumulated surface runoff [m]
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  UDRUNOFF_TR  ! accumulated sub-surface runoff [m]
   REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SMOIS_TR     ! volumetric soil moisture [m3/m3]
-  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SH2OXY_TR      ! volumetric liquid soil moisture [m3/m3]
-  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWXY_TR      ! snow water equivalent [mm]
-  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWHXY_TR     ! physical snow depth [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SH2OXY_TR    ! volumetric liquid soil moisture [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWXY_TR    ! snow water equivalent [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWHXY_TR   ! physical snow depth [m]
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CANWAT_TR    ! total canopy water + ice [mm]
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACSNOM_TR    ! accumulated snow melt leaving pack
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACSNOW_TR    ! accumulated snow on grid
@@ -309,12 +309,12 @@ module module_NoahMP_hrldas_driver
   character(len=256)                      :: track_start   ! YYYY-MM-DD
   character(len=256)                      :: track_end     ! YYYY-MM-DD
   integer                                 :: partial_mixing_option ! partial mixing option (0-complete mixing, 1-partial mixing)
-  !-----variables read fro namelist--------
+  !-----variables read from namelist--------
   integer                                 :: OPT_WT       ! 0-water tracer off, 1-water tracer on
   character(len=19)                       :: wvtstart     ! YYYY-MM-DD_hh:mm:ss
   character(len=19)                       :: wvtend       ! YYYY-MM-DD_hh:mm:ss
   integer                                 :: IOPT_PM      ! partial mixing option (0-complete mixing, 1-partial mixing)
-  integer                                 :: NTRACER      ! sum of NSUB
+  integer                                 :: NTRACER      ! sum of NSUB. Used for ISO below
   !------tracer flag and raio variables to "tag" water from precip------
   INTEGER                                 :: wvtflag      ! 0->before track_start; 1->at track_start
                                                           ! 2->during tracking period; 3->after track_end
@@ -354,24 +354,23 @@ module module_NoahMP_hrldas_driver
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EDIRXY_ISO     ! soil surface evaporation rate (mm/s]
   REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ETRANXY_ISO    ! transpiration rate (mm/s)
   REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  FLUXXY_ISO     ! tracer flux at soil bottom [m]
-  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SMOIS_SUB      ! volumetric soil moisture in sublayers [m3/m3]
-  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SH2OXY_SUB     ! volumetric liquid soil moisture in sublayers [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SMOIS_SUB_ISO      ! volumetric soil moisture in sublayers [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SH2OXY_SUB_ISO     ! volumetric liquid soil moisture in sublayers [m3/m3]
   !------namelist variables----------------
-  integer                                 :: water_isotope_tracer_option ! 0-water tracer off, 1-water tracer on
-  character(len=256)                      :: track_start   ! YYYY-MM-DD
-  character(len=256)                      :: track_end     ! YYYY-MM-DD
-  integer                                 :: partial_mixing_option ! partial mixing option (0-complete mixing, 1-partial mixing)
+  integer                                 :: water_tracer_option_iso ! 0-water tracer off, 1-water tracer on
+  character(len=256)                      :: track_start_iso   ! YYYY-MM-DD
+  character(len=256)                      :: track_end_iso     ! YYYY-MM-DD
+  integer                                 :: partial_mixing_option_iso ! partial mixing option (0-complete mixing, 1-partial mixing)
   !-----variables read fro namelist--------
-  integer                                 :: OPT_WT       ! 0-water tracer off, 1-water tracer on
-  character(len=19)                       :: wvtstart     ! YYYY-MM-DD_hh:mm:ss
-  character(len=19)                       :: wvtend       ! YYYY-MM-DD_hh:mm:ss
-  integer                                 :: IOPT_PM      ! partial mixing option (0-complete mixing, 1-partial mixing)
-  integer                                 :: NTRACER      ! sum of NSUB
+  integer                                 :: OPT_WT_ISO       ! 0-water tracer off, 1-water tracer on
+  character(len=19)                       :: wvtstart_iso     ! YYYY-MM-DD_hh:mm:ss
+  character(len=19)                       :: wvtend_iso       ! YYYY-MM-DD_hh:mm:ss
+  integer                                 :: IOPT_PM_ISO      ! partial mixing option (0-complete mixing, 1-partial mixing)
   !------tracer flag and raio variables to "tag" water from precip------
-  INTEGER                                 :: wvtflag      ! 0->before track_start; 1->at track_start
-                                                          ! 2->during tracking period; 3->after track_end
-  REAL                                    :: wvt_ratio    ! ratio of tracer precip to total precip
-  INTEGER                                 :: K
+  INTEGER                                 :: wvtflag_iso      ! 0->before track_start; 1->at track_start
+                                                             ! 2->during tracking period; 3->after track_end
+  REAL                                    :: wvt_ratio_iso    ! ratio of tracer precip to total precip
+  INTEGER                                 :: K_iso
 
 !------------------------------------------------------------------------
 ! Needed for NoahMP init
@@ -533,6 +532,7 @@ module module_NoahMP_hrldas_driver
   integer, PARAMETER    :: MAX_SOIL_LEVELS = 20   ! maximum soil levels in namelist
   REAL, DIMENSION(MAX_SOIL_LEVELS) :: soil_thick_input       ! depth to soil interfaces from namelist [m]
   integer, dimension(MAX_SOIL_LEVELS)     :: tracer_sublayer ! number of sublayers for tracer
+  integer, dimension(MAX_SOIL_LEVELS)     :: tracer_sublayer_iso ! number of sublayers for tracer
   integer, dimension(MAX_SOIL_LEVELS)     :: NSUB         ! number of sublayer for tracer
   integer :: rst_bi_out, rst_bi_in !0: default netcdf format. 1: binary write/read by each core.
 
@@ -553,6 +553,8 @@ module module_NoahMP_hrldas_driver
        restart_filename_requested, restart_frequency_hours, output_timestep, &
 
        water_tracer_option, track_start, track_end, partial_mixing_option, tracer_sublayer, &
+
+       water_tracer_option_iso, track_start_iso, track_end_iso, partial_mixing_option_iso, tracer_sublayer_iso, &
 
        dynamic_veg_option, canopy_stomatal_resistance_option, &
        btr_option, runoff_option, surface_drag_option, supercooled_water_option, &
@@ -580,8 +582,10 @@ module module_NoahMP_hrldas_driver
 INTERFACE
   SUBROUTINE hrldas_drv_HYDRO_ini(STC_io,SMC_io,SH2OX_io,infxsrt,sfcheadrt,soldrain,&
                                   ii,jj,kk,kt,dt,olddate,zsoil   &
-                                 ,NTRACER,OPT_WT, SMOIS_TR, SH2OXY_TR,SMOIS_SUB,SH2OXY_SUB &    !wt vars
-                                 ,infxsrt_tr,sfcheadrt_tr,soldrain_tr)       !wt vars
+                                 ,NTRACER, OPT_WT,     SMOIS_TR,  SH2OXY_TR,  SMOIS_SUB,     SH2OXY_SUB &        !wt vars
+                                 ,NTRACER, OPT_WT_ISO, SMOIS_ISO, SH2OXY_ISO, SMOIS_SUB_ISO, SH2OXY_SUB_ISO &    !iso vars
+                                 ,infxsrt_tr,sfcheadrt_tr,soldrain_tr &         !wt vars
+                                 ,infxsrt_iso,sfcheadrt_iso,soldrain_iso)       !wt vars
           implicit none
           integer,            intent(in)                             :: ii,jj,kk, kt
           character(len=*),   intent(in)                             :: olddate
@@ -601,9 +605,9 @@ INTERFACE
 ! Needed for isotope tracer capability
 !--------------------------------------------------------
           integer,            intent(in)                             :: NTRACER
-          integer,optional,   intent(in)                             :: OPT_WT
-          real,   optional,   intent(inout),dimension(ii,NTRACER,jj) :: SMOIS_ISO, SH2OXY_ISO, SMOIS_SUB,SH2OXY_SUB
-          real,   optional,   intent(inout),dimension(ii,jj)         :: infxsrt_tr,sfcheadrt_tr, soldrain_tr
+          integer,optional,   intent(in)                             :: OPT_WT_ISO
+          real,   optional,   intent(inout),dimension(ii,NTRACER,jj) :: SMOIS_ISO, SH2OXY_ISO, SMOIS_SUB_ISO,SH2OXY_SUB_ISO
+          real,   optional,   intent(inout),dimension(ii,jj)         :: infxsrt_iso,sfcheadrt_iso, soldrain_iso
   END SUBROUTINE hrldas_drv_HYDRO_ini
 END INTERFACE
 !---------------------------------------------
@@ -636,8 +640,9 @@ END INTERFACE
   output_timestep         = -999
   restart_frequency_hours = -999
   tracer_sublayer         = -999       ! water tracer sublayers
-  iso_tracer_sublayer     = -999       ! isotope tracer sublayers
+  tracer_sublayer_iso     = -999       ! isotope tracer sublayers
   wvtflag                 = -999       ! flag for water tracer
+  wvtflag_iso             = -999       ! flag for isotope tracer
   nlst_rt(did)%wvtflag    = -999
   nlst_rt(did)%NTRACER    = -999
   nlst_rt(did)%PMOPT      = -999
@@ -703,8 +708,8 @@ END INTERFACE
   IOPT_GLA = glacier_option
   IOPT_RSF = surface_resistance_option
   !-----water tracer variables--------
-  OPT_WT   = water_tracer_option
-  NTRACER  = 1
+  OPT_WT       = water_tracer_option
+  NTRACER      = 1
   if (OPT_WT .eq. 1) then 
     nlst_rt(did)%PMOPT   = partial_mixing_option
     if (partial_mixing_option .eq. 1 .or. partial_mixing_option .eq. 3) then
@@ -720,6 +725,25 @@ END INTERFACE
   end if
   print *, "FLAG1"
   print *, "OPT_WT,IOPT_PM:", OPT_WT, IOPT_PM
+  print *, "NTRACER", NTRACER 
+  !-----isotope tracer variables--------
+  OPT_WT_ISO   = water_tracer_option
+  NTRACER      = 1
+  if (OPT_WT_ISO .eq. 1) then 
+    nlst_rt(did)%PMOPT   = partial_mixing_option_iso
+    if (partial_mixing_option_iso .eq. 1 .or. partial_mixing_option_iso .eq. 3) then
+      IOPT_PM_ISO  = 1
+    else
+      IOPT_PM_ISO  = 0
+    end if
+    NSUB     = tracer_sublayer_iso
+    NTRACER  = sum(NSUB(1:nsoil))
+    nlst_rt(did)%NTRACER = NTRACER
+    allocate(nlst_rt(did)%NSUB(MAX_SOIL_LEVELS))
+    nlst_rt(did)%NSUB    = NSUB
+  end if
+  print *, "FLAG1"
+  print *, "OPT_WT_ISO,IOPT_PM_ISO:", OPT_WT_ISO, IOPT_PM_ISO
   print *, "NTRACER", NTRACER 
 
   !!----------------------------------------------------------------------------
@@ -938,6 +962,15 @@ print *, "flag new4"
 
     write(wvtend,'(A4,"-",A2,"-",A2,"_",A2,":",A2,":",A2)') &
        track_end(1:4), track_end(5:6), track_end(7:8), track_end(9:10), track_end(11:12),0
+  end if
+!---------------------------------------
+!-----isotope tracer tracking times-------
+  if (OPT_WT_ISO .eq. 1) then 
+    write(wvtstart_iso,'(A4,"-",A2,"-",A2,"_",A2,":",A2,":",A2)') &
+       track_start_iso(1:4), track_start_iso(5:6), track_start_iso(7:8),track_start_iso(9:10), track_start_iso(11:12),0
+
+    write(wvtend_iso,'(A4,"-",A2,"-",A2,"_",A2,":",A2,":",A2)') &
+       track_end_iso(1:4), track_end_iso(5:6), track_end_iso(7:8), track_end_iso(9:10), track_end_iso(11:12),0
   end if
 !---------------------------------------
   
@@ -1206,8 +1239,8 @@ if (OPT_WT .eq. 1) then
   ALLOCATE ( EDIRXY_ISO    (XSTART:XEND,YSTART:YEND) )  ! soil surface evaporation rate (mm/s]
   ALLOCATE ( ETRANXY_ISO   (XSTART:XEND,YSTART:YEND) )  ! transpiration rate (mm/s)
   ALLOCATE ( FLUXXY_ISO     (XSTART:XEND,1:NTRACER,YSTART:YEND) )     ! tracer flux at soil bottom [m]
-  ALLOCATE ( SMOIS_SUB     (XSTART:XEND,1:NTRACER,YSTART:YEND) )     ! volumetric soil moisture in sublayers [m3/m3]
-  ALLOCATE ( SH2OXY_SUB    (XSTART:XEND,1:NTRACER,YSTART:YEND) )     ! volumetric liquid soil moisture in sublayers [m3/m3]
+  ALLOCATE ( SMOIS_SUB_ISO     (XSTART:XEND,1:NTRACER,YSTART:YEND) )     ! volumetric soil moisture in sublayers [m3/m3]
+  ALLOCATE ( SH2OXY_SUB_ISO    (XSTART:XEND,1:NTRACER,YSTART:YEND) )     ! volumetric liquid soil moisture in sublayers [m3/m3]
 end if
 
 !------------------------------------------------------------------------
@@ -1485,10 +1518,10 @@ if (OPT_WT .eq. 1) then
   EDIRXY_ISO     = undefined_real
   ETRANXY_ISO    = undefined_real
   FLUXXY_ISO     = undefined_real
-  SMOIS_SUB      = undefined_real
-  SH2OXY_SUB     = undefined_real
+  SMOIS_SUB_ISO      = undefined_real
+  SH2OXY_SUB_ISO     = undefined_real
 end if
-print *, "FLAG2"
+print *, "FLAG2_ISO"
 print *, "NTRACER", NTRACER
 !-------------------------------------------------
 
@@ -1638,8 +1671,8 @@ print *, "NTRACER", NTRACER
     call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "ACSNOW_ISO"  , ACSNOW_ISO   )  !13
     call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "SFCRUNOFF_ISO",SFCRUNOFF_ISO   ) !14
     call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "UDRUNOFF_ISO" ,UDRUNOFF_ISO    ) !15
-    call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "SMC_SUB"     , SMOIS_SUB    )  !16
-    call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "SH2O_SUB"    , SH2OXY_SUB   )  !17
+    call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "SMC_SUB_ISO"     , SMOIS_SUB_ISO    )  !16
+    call get_from_restart(xstart, xend, xstart, ixfull, jxfull, "SH2O_SUB_ISO"    , SH2OXY_SUB_ISO   )  !17
   end if
 !------------------------------------------------------------------------------------------
 
@@ -1836,7 +1869,7 @@ print *, "NTRACER", NTRACER
    soldrain  = 0.0
 
    !-----isotope tracer vars-----
-   if (OPT_WT .eq. 1) then
+   if (OPT_WT_ISO .eq. 1) then
     allocate( infxsrt_iso   (ix,jx) )
     allocate( sfcheadrt_iso (ix,jx) )
     allocate( soldrain_iso  (ix,jx) )
@@ -1846,11 +1879,11 @@ print *, "NTRACER", NTRACER
   end if
   !-----isotope tracer end------   
 
-  prcp0     = 0
-  sfcheadrt = 0.0
-  infxsrt   = 0.0
-  etpnd     = 0.0
-  soldrain  = 0.0
+  prcp0         = 0
+  sfcheadrt_iso = 0.0
+  infxsrt_iso   = 0.0
+  etpnd         = 0.0
+  soldrain_iso  = 0.0
 
    allocate(zsoil (NSOIL))
    zsoil = 0
@@ -1879,6 +1912,23 @@ print *, "NTRACER", NTRACER
          infxsrt,sfcheadrt,soldrain,ix,jx,NSOIL,NSOIL,real(noah_timestep),          &
          olddate,zsoil(1:NSOIL),NTRACER)
   end if
+
+  !-------isotope tracer calc------
+  if (OPT_WT_ISO .eq. 1) then
+    call hrldas_drv_HYDRO_ini(TSLB(:,1:NSOIL,:),SMOIS(:,1:NSOIL,:),SH2O(:,1:NSOIL,:), &
+          infxsrt,sfcheadrt,soldrain,ix,jx,NSOIL,NSOIL,real(noah_timestep),          &
+          olddate,zsoil(1:NSOIL)      &
+          , NTRACER, OPT_WT_ISO=OPT_WT_ISO                           &
+          , SMOIS_ISO=SMOIS_ISO, SH2OXY_ISO=SH2OXY_ISO           &
+          , SMOIS_SUB_ISO=SMOIS_SUB_ISO, SH2OXY_SUB_ISO=SH2OXY_SUB_ISO       &
+          , infxsrt_iso=infxsrt_iso                            &
+          , sfcheadrt_iso=sfcheadrt_iso                        &
+          , soldrain_iso =soldrain_iso)
+   else
+    call hrldas_drv_HYDRO_ini(TSLB(:,1:NSOIL,:),SMOIS(:,1:NSOIL,:),SH2O(:,1:NSOIL,:), &
+          infxsrt,sfcheadrt,soldrain,ix,jx,NSOIL,NSOIL,real(noah_timestep),          &
+          olddate,zsoil(1:NSOIL),NTRACER)
+   end if
 
 call get_iocflag(1, io_config_outputs)
 
@@ -1979,7 +2029,9 @@ end subroutine land_driver_ini
      INTERFACE
         subroutine hrldas_drv_HYDRO(STC_io,SMC_io,SH2OX_io,infxsrt,sfcheadrt,soldrain,ii,jj,kk, &
                                    NTRACER, WVTFLAG, SMOIS_SUB, SH2OXY_SUB, &      !wt vars
-                                   SMOIS_TR, SH2OXY_TR,infxsrt_tr, sfcheadrt_tr,soldrain_tr )   !wt vars
+                                   NTRACER, WVTFLAG_ISO, SMOIS_SUB_ISO, SH2OXY_SUB_ISO, &      !iso vars
+                                   SMOIS_TR, SH2OXY_TR,infxsrt_tr, sfcheadrt_tr,soldrain_tr, &   !wt vars
+                                   SMOIS_ISO, SH2OXY_ISO,infxsrt_iso, sfcheadrt_iso,soldrain_iso )    !iso vars
           implicit none
           integer,                                intent(INOUT) :: ii,jj,kk
           real,dimension(ii,kk,jj),               intent(INOUT) :: STC_io,SMC_io,SH2OX_io
@@ -1989,6 +2041,11 @@ end subroutine land_driver_ini
           integer,                      optional, intent(INOUT) :: WVTFLAG
           real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB, SH2OXY_SUB, SMOIS_TR,SH2OXY_TR
           real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_tr,sfcheadrt_tr, soldrain_tr
+         !-----water tracer vars------
+          integer,                                intent(INOUT) :: NTRACER
+          integer,                      optional, intent(INOUT) :: WVTFLAG_ISO
+          real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB_ISO, SH2OXY_SUB_ISO, SMOIS_ISO,SH2OXY_ISO
+          real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_iso,sfcheadrt_iso, soldrain_iso
         end subroutine hrldas_drv_HYDRO
      END INTERFACE
 
@@ -2091,6 +2148,7 @@ if (OPT_WT .eq. 1) then
       end if
     end if
   end if
+
 !print *, "FLAG4, SFCRUNOFF(32,26),SFCRUNOFF_TR(32,26):",SFCRUNOFF(32,26),SFCRUNOFF_TR(32,26)
 print *, "wvtflag", wvtflag
 print *, "NTRACER", NTRACER
@@ -2151,6 +2209,85 @@ print *, "NTRACER", NTRACER
 	wvtflag = 2
   end if
   
+end if
+!print *, "FLAG5, SFCRUNOFF(44,23),SFCRUNOFF_TR(44,23):",SFCRUNOFF(44,23),SFCRUNOFF_TR(44,23)
+print *, "NTRACER", NTRACER
+!------------------------------------------------
+!------isotope tracer variables initiation-------
+if (OPT_WT_ISO .eq. 1) then 
+  if (olddate < wvtstart_iso) then
+    wvtflag_iso = 0
+  else
+    if (olddate(1:15) == wvtstart_iso(1:15)) then
+      wvtflag_iso = 1
+    else
+      if (olddate < wvtend_iso) then
+        wvtflag_iso = 2
+      else
+        wvtflag_iso = 3
+      end if
+    end if
+  end if
+
+print *, "wvtflag_iso", wvtflag_iso
+print *, "NTRACER", NTRACER
+! call tell_wt_flag(olddate, wvtstart, wvtend, wvtflag)
+if (wvtflag_iso == 1) then
+      QFX_ISO        = 0.0
+      LH_ISO         = 0.0
+      SFCRUNOFF_ISO  = 0.0
+      UDRUNOFF_ISO   = 0.0
+      SMOIS_ISO      = 0.0
+      SH2OXY_ISO       = 0.0
+      SNOWXY_ISO       = 0.0
+      SNOWHXY_ISO      = 0.0
+      CANWAT_ISO     = 0.0
+      ACSNOM_ISO     = 0.0
+      ACSNOW_ISO     = 0.0
+      CANICEXY_ISO   = 0.0
+      CANLIQXY_ISO   = 0.0
+      QSNOWXY_ISO    = 0.0
+      WSLAKEXY_ISO   = 0.0
+      WAXY_ISO       = 0.0
+      WTXY_ISO       = 0.0
+      ZSNSOXY_ISO    = 0.0
+K_iso = 0
+      do I = 1, NSOIL
+         do J = 1,NSUB(I)
+            K_iso = K_iso + 1
+            ZSNSOXY_ISO(:,K,:) = ZSNSOXY(:,I,:) + DZS(I)*(NSUB(I)-J)/NSUB(I)
+         end do
+      end do
+SMCWTDXY_ISO   = 0.0
+      rechxy_ISO     = 0.0
+      deeprechxy_ISO = 0.0
+      SNICEXY_ISO    = 0.0
+      SNLIQXY_ISO    = 0.0
+      RUNSFXY_ISO    = 0.0
+      RUNSBXY_ISO    = 0.0
+      ECANXY_ISO     = 0.0
+      EDIRXY_ISO     = 0.0
+      ETRANXY_ISO    = 0.0
+      SMOIS_SUB_ISO      = 0.0
+      SH2OXY_SUB_ISO       = 0.0
+      FLUXXY_ISO      = 0.0
+      ! specicial care for SMOIS_SUB...
+      K_iso = 0
+      DO I = 1, NSOIL
+            DO J =  NSUB(I), 1, -1
+               K_iso = K_iso + 1
+               SMOIS_SUB_ISO(:,K_iso,:) = SMOIS(:,I,:)
+               SH2OXY_SUB_ISO(:,K_iso,:) = SH2O(:,I,:)
+            END DO
+       !     if (I .eq. 1) then
+       !        SMOIS_SUB(:,2:NSUB(1),:) = SH2O_SUB(:,2:NSUB(1),:)
+       !        SMOIS_SUB(:,1,:) = SMOIS(:,I,:)*NSUB(1)-SH2O(:,I,:)*(NSUB(1)-1)
+       !     end if
+      END DO
+! call initialized_wt(xxx)
+wvtflag_iso = 2
+end if
+
 end if
 !print *, "FLAG5, SFCRUNOFF(44,23),SFCRUNOFF_TR(44,23):",SFCRUNOFF(44,23),SFCRUNOFF_TR(44,23)
 print *, "NTRACER", NTRACER
