@@ -41,9 +41,9 @@ module module_NoahMP_hrldas_driver
 #endif
 
 #ifdef WRF_HYDRO
-   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt,sfcheadrt, soldrain
-   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt_tr, sfcheadrt_tr, soldrain_tr    ! water tracer vars
-   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt_iso, sfcheadrt_iso, soldrain_iso    ! isotope tracer vars
+   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt,sfcheadrt,soldrain
+   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt_tr,sfcheadrt_tr,soldrain_tr    ! water tracer vars
+   REAL,    allocatable, DIMENSION(:,:)   :: infxsrt_iso,sfcheadrt_iso,soldrain_iso ! isotope tracer vars
    !LRK - Remove HRLDAS_ini_typ for WRF-Hydro
    integer :: forc_typ, snow_assim, HRLDAS_ini_typ
    !integer :: forc_typ, snow_assim
@@ -315,7 +315,7 @@ module module_NoahMP_hrldas_driver
   character(len=19)                       :: wvtend       ! YYYY-MM-DD_hh:mm:ss
   integer                                 :: IOPT_PM      ! partial mixing option (0-complete mixing, 1-partial mixing)
   integer                                 :: NTRACER      ! sum of NSUB. Used for ISO below
-  !------tracer flag and raio variables to "tag" water from precip------
+  !------tracer flag and ratio variables to "tag" water from precip------
   INTEGER                                 :: wvtflag      ! 0->before track_start; 1->at track_start
                                                           ! 2->during tracking period; 3->after track_end
   REAL                                    :: wvt_ratio    ! ratio of tracer precip to total precip
@@ -366,7 +366,7 @@ module module_NoahMP_hrldas_driver
   character(len=19)                       :: wvtstart_iso     ! YYYY-MM-DD_hh:mm:ss
   character(len=19)                       :: wvtend_iso       ! YYYY-MM-DD_hh:mm:ss
   integer                                 :: IOPT_PM_ISO      ! partial mixing option (0-complete mixing, 1-partial mixing)
-  !------tracer flag and raio variables to "tag" water from precip------
+  !------tracer flag and ratio variables to "tag" water from precip------
   INTEGER                                 :: wvtflag_iso      ! 0->before track_start; 1->at track_start
                                                              ! 2->during tracking period; 3->after track_end
   REAL                                    :: wvt_ratio_iso    ! ratio of tracer precip to total precip
@@ -532,8 +532,8 @@ module module_NoahMP_hrldas_driver
   integer, PARAMETER    :: MAX_SOIL_LEVELS = 20   ! maximum soil levels in namelist
   REAL, DIMENSION(MAX_SOIL_LEVELS) :: soil_thick_input       ! depth to soil interfaces from namelist [m]
   integer, dimension(MAX_SOIL_LEVELS)     :: tracer_sublayer ! number of sublayers for tracer
-  integer, dimension(MAX_SOIL_LEVELS)     :: tracer_sublayer_iso ! number of sublayers for tracer
-  integer, dimension(MAX_SOIL_LEVELS)     :: NSUB         ! number of sublayer for tracer
+  integer, dimension(MAX_SOIL_LEVELS)     :: tracer_sublayer_iso ! number of sublayers for isotope 
+  integer, dimension(MAX_SOIL_LEVELS)     :: NSUB         ! number of sublayer for tracer/iso
   integer :: rst_bi_out, rst_bi_in !0: default netcdf format. 1: binary write/read by each core.
 
 #ifdef WRF_HYDRO
@@ -547,14 +547,14 @@ module module_NoahMP_hrldas_driver
        !finemesh,finemesh_factor,forc_typ, snow_assim , GEO_STATIC_FLNM, HRLDAS_ini_typ
 #endif
   namelist / NOAHLSM_OFFLINE /    &
-       indir, nsoil, soil_thick_input, forcing_timestep, noah_timestep, &
+       indir, nsoil, soil_thick_input, forcing_timestep, noah_timestep,&
        start_year, start_month, start_day, start_hour, start_min, &
        outdir, &
        restart_filename_requested, restart_frequency_hours, output_timestep, &
 
-       water_tracer_option, track_start, track_end, partial_mixing_option, tracer_sublayer, &
+       water_tracer_option, track_start, track_end, partial_mixing_option, tracer_sublayer, & !tracer
 
-       water_tracer_option_iso, track_start_iso, track_end_iso, partial_mixing_option_iso, tracer_sublayer_iso, &
+       water_tracer_option_iso, track_start_iso, track_end_iso, partial_mixing_option_iso, tracer_sublayer_iso, & !isotope 
 
        dynamic_veg_option, canopy_stomatal_resistance_option, &
        btr_option, runoff_option, surface_drag_option, supercooled_water_option, &
@@ -728,7 +728,7 @@ END INTERFACE
   print *, "NTRACER", NTRACER 
   !-----isotope tracer variables--------
   OPT_WT_ISO   = water_tracer_option
-  NTRACER      = 1
+  NTRACER      = 1 ! same variable for wt 
   if (OPT_WT_ISO .eq. 1) then 
     nlst_rt(did)%PMOPT   = partial_mixing_option_iso
     if (partial_mixing_option_iso .eq. 1 .or. partial_mixing_option_iso .eq. 3) then
@@ -963,7 +963,7 @@ print *, "flag new4"
     write(wvtend,'(A4,"-",A2,"-",A2,"_",A2,":",A2,":",A2)') &
        track_end(1:4), track_end(5:6), track_end(7:8), track_end(9:10), track_end(11:12),0
   end if
-!---------------------------------------
+!-----------------------------------------
 !-----isotope tracer tracking times-------
   if (OPT_WT_ISO .eq. 1) then 
     write(wvtstart_iso,'(A4,"-",A2,"-",A2,"_",A2,":",A2,":",A2)') &
@@ -1913,16 +1913,16 @@ print *, "NTRACER", NTRACER
          olddate,zsoil(1:NSOIL),NTRACER)
   end if
 
-  !-------isotope tracer calc------
+  !-------isotope tracer calc------ Will likely have to edit this! 
   if (OPT_WT_ISO .eq. 1) then
     call hrldas_drv_HYDRO_ini(TSLB(:,1:NSOIL,:),SMOIS(:,1:NSOIL,:),SH2O(:,1:NSOIL,:), &
           infxsrt,sfcheadrt,soldrain,ix,jx,NSOIL,NSOIL,real(noah_timestep),          &
           olddate,zsoil(1:NSOIL)      &
-          , NTRACER, OPT_WT_ISO=OPT_WT_ISO                           &
-          , SMOIS_ISO=SMOIS_ISO, SH2OXY_ISO=SH2OXY_ISO           &
-          , SMOIS_SUB_ISO=SMOIS_SUB_ISO, SH2OXY_SUB_ISO=SH2OXY_SUB_ISO       &
-          , infxsrt_iso=infxsrt_iso                            &
-          , sfcheadrt_iso=sfcheadrt_iso                        &
+          , NTRACER, OPT_WT_ISO=OPT_WT_ISO                             &
+          , SMOIS_ISO=SMOIS_ISO, SH2OXY_ISO=SH2OXY_ISO                 &
+          , SMOIS_SUB_ISO=SMOIS_SUB_ISO, SH2OXY_SUB_ISO=SH2OXY_SUB_ISO &
+          , infxsrt_iso=infxsrt_iso                                    &
+          , sfcheadrt_iso=sfcheadrt_iso                                &
           , soldrain_iso =soldrain_iso)
    else
     call hrldas_drv_HYDRO_ini(TSLB(:,1:NSOIL,:),SMOIS(:,1:NSOIL,:),SH2O(:,1:NSOIL,:), &
@@ -2023,15 +2023,16 @@ print *, "NTRACER", NTRACER
 end subroutine land_driver_ini
 
 !===============================================================================
+! Do not need isotope subroutine I think... Check on this 
   subroutine land_driver_exe(itime)
   use module_hydro_io, only: read_channel_only
      implicit  none
      INTERFACE
         subroutine hrldas_drv_HYDRO(STC_io,SMC_io,SH2OX_io,infxsrt,sfcheadrt,soldrain,ii,jj,kk, &
                                    NTRACER, WVTFLAG, SMOIS_SUB, SH2OXY_SUB, &      !wt vars
-                                   NTRACER, WVTFLAG_ISO, SMOIS_SUB_ISO, SH2OXY_SUB_ISO, &      !iso vars
-                                   SMOIS_TR, SH2OXY_TR,infxsrt_tr, sfcheadrt_tr,soldrain_tr, &   !wt vars
-                                   SMOIS_ISO, SH2OXY_ISO,infxsrt_iso, sfcheadrt_iso,soldrain_iso )    !iso vars
+                                  ! NTRACER, WVTFLAG_ISO, SMOIS_SUB_ISO, SH2OXY_SUB_ISO, &      !iso vars
+                                   SMOIS_TR, SH2OXY_TR,infxsrt_tr, sfcheadrt_tr,soldrain_tr) !, &   !wt vars
+                                   !SMOIS_ISO, SH2OXY_ISO,infxsrt_iso, sfcheadrt_iso,soldrain_iso )    !iso vars
           implicit none
           integer,                                intent(INOUT) :: ii,jj,kk
           real,dimension(ii,kk,jj),               intent(INOUT) :: STC_io,SMC_io,SH2OX_io
@@ -2039,13 +2040,13 @@ end subroutine land_driver_ini
          !-----water tracer vars------
           integer,                                intent(INOUT) :: NTRACER
           integer,                      optional, intent(INOUT) :: WVTFLAG
-          real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB, SH2OXY_SUB, SMOIS_TR,SH2OXY_TR
-          real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_tr,sfcheadrt_tr, soldrain_tr
-         !-----water tracer vars------
-          integer,                                intent(INOUT) :: NTRACER
-          integer,                      optional, intent(INOUT) :: WVTFLAG_ISO
-          real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB_ISO, SH2OXY_SUB_ISO, SMOIS_ISO,SH2OXY_ISO
-          real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_iso,sfcheadrt_iso, soldrain_iso
+          real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB, SH2OXY_SUB, SMOIS_TR, SH2OXY_TR
+          real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_tr, sfcheadrt_tr, soldrain_tr
+         !-----isotope tracer vars------
+          !integer,                                intent(INOUT) :: NTRACER
+          !integer,                      optional, intent(INOUT) :: WVTFLAG_ISO
+          !real,dimension(ii,NTRACER,jj),optional, intent(INOUT) :: SMOIS_SUB_ISO, SH2OXY_SUB_ISO, SMOIS_ISO,SH2OXY_ISO! Do not think I need this...? Change above 2032? 
+          !real,dimension(ii,jj),        optional, intent(INOUT) :: infxsrt_iso,sfcheadrt_iso, soldrain_iso
         end subroutine hrldas_drv_HYDRO
      END INTERFACE
 
