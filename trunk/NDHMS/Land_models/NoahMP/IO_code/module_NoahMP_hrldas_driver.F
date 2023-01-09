@@ -1,5 +1,5 @@
-!  Program Name:
-!  Author(s)/Contact(s):
+!  Program Name: 
+!  Author(s)/Contact(s): Zach Butler and Huancui Hu
 !  Abstract:
 !  History Log:
 ! 
