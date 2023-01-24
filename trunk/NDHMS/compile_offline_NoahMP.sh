@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# test comment
 ## This script takes one optional argument:
 ## a file which sets the environment variables
 ## to use in the compile (clearning any inherited
